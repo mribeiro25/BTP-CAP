@@ -1,0 +1,118 @@
+_schema-version: 3.3.0
+ID: AlunosMig
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: AlunosMig-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: AlunosMig-db
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    readiness-health-check-http-endpoint: /health
+    readiness-health-check-type: http
+  build-parameters:
+    builder: npm
+- name: AlunosMig-db-deployer
+  type: hdb
+  path: gen/db
+  requires:
+  - name: AlunosMig-db
+  parameters:
+    buildpack: nodejs_buildpack
+- name: AlunosMig-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: AlunosMig-repo-host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - treinamentobtpcaptreinamento.zip
+      name: treinamentobtpcaptreinamento
+      target-path: resources/
+    - artifacts:
+      - cursosbtpcursos.zip
+      name: cursosbtpcursos
+      target-path: resources/
+    - artifacts:
+      - sestudantesbycurso.zip
+      name: sestudantesbycurso
+      target-path: resources/
+- name: treinamentobtpcaptreinamento
+  type: html5
+  path: app/btpcaptreinamento
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: cursosbtpcursos
+  type: html5
+  path: app/btpcursos
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: sestudantesbycurso
+  type: html5
+  path: app/estudantesbycurso
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: AlunosMig-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    service: hana
+    service-plan: hdi-shared
+- name: AlunosMig-repo-host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: AlunosMig-html5-srv
+    service-plan: app-host
+- name: AlunosMig-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: false
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: AlunosMig-destination-service
+    service-plan: lite
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production
